@@ -1,4 +1,4 @@
-source("~/project/atlasqtl_code/data_simulation/utils.R")
+source("data_simulation_tools/utils.R")
 
 set_pattern <- function(d, p, ind_d0, ind_p0, vec_prob_sh) {
   

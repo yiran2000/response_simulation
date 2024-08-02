@@ -5,24 +5,16 @@ library(atlasqtl)
 library(tictoc)
 library(echoseq)
 library(PRROC)
+library(patchwork)
 
 #change the file directory as in your case
 geno_path = "C:/Users/Yiran/OneDrive - University of Cambridge/Documents/PhD"
-simulation_tool_path = 
-"C:\\Users\\Yiran\\OneDrive - University of Cambridge\\Documents\\PhD\\atlasqtl\\real_SNP_simulation\\data_simulation_tools"
 
-simulation_tool_path = 
-  "C:/Users/Yiran/OneDrive - University of Cambridge/Documents/PhD/real_SNP_simulation/data_simulation_tools"
-
-source(file.path(simulation_tool_path, "data_generation_utils.R")) 
-source(file.path(simulation_tool_path, "simulate_withRealGenome.R")) 
-
-source("C:/Users/Yiran/OneDrive - University of Cambridge/Documents/PhD/real_SNP_simulation/data_simulation_tools/data_generation_utils.R")
-
+source("data_simulation_tools/simulate_withRealGenome.R")
 #-------------------------------------------------------------------------------
 # setting up parameters, these are the real scopes, but it will take quite some time to run 
 # you can play with small ones first as you like
-q = 3000   
+q = 3000
 p = 1000
 n = 35000
 
@@ -35,7 +27,7 @@ sh2 = 20
 #Data simulation
 #X
 geno = fread(file.path(geno_path, "imputed_chr1_ld1_filtered.raw"))
-X = geno[sample(1:nrow(geno), n),7:ncol(geno)] #randomly subset n number of samples
+X = geno[ ,7:ncol(geno)] #randomly subset n number of samples
 colnames(X) = sapply(strsplit(colnames(X), "_"), `[`, 1)
 
 #with the seed as p, the dataset simulated should be the each for each p
@@ -45,11 +37,11 @@ list = simulate_withRealGenome(X, p=p, q=q,
                                active_ratio_p = active_ratio_p, 
                                max_tot_pve = max_tot_pve,
                                sh2 = sh2,
-                               X_chunk_size = NULL,
                                seed = 2024)
 X = list$X
 Y = list$Y
 pat = list$pat
+
 
 # Mean impute Y
 # If you want, you can set missing_ratio = 0.2 and then mean-impute, which is more simuler to the real case
@@ -62,6 +54,8 @@ pat = list$pat
 data.frame(SNP = 1:nrow(pat), ProteinCount = rowSums(pat)) %>% ggplot(
   aes(x = SNP, y = ProteinCount)
 ) +geom_point()
+
+
 
 #-------------------------------------------------------------------------------
 # Run atlasQTL

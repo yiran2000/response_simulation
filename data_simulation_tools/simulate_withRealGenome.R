@@ -1,13 +1,14 @@
 library(dplyr)
 library(data.table)
 require(echoseq)
-# source("~/project/atlasqtl_code/atlasqtl/real_SNP_simulation/data_simulation_tools/data_generation_utils.R")
+source("data_simulation_tools/data_generation_utils.R")
 
 
-simulate_withRealGenome = function(X, p, q = 3000, 
+simulate_withRealGenome = function(X, n, p, q = 3000, 
                                    # percentage of predictor and response that are actively associated with each other
-                                   X_chunk_size = NULL,
                                    active_ratio_p = 0.2, active_ratio_q = 0.4,
+                                   # X_chunk_size = 100,
+                                   # n_active_chunk = 2,
                                    max_q_assoc = 5, # maximum number of proteins to be associated with one protein
                                    #rate of missingness in Y (in total, with variation in each column)
                                    missing_ratio = 0.2, 
@@ -23,8 +24,12 @@ simulate_withRealGenome = function(X, p, q = 3000,
                                    # If phenotypes correlated, min and max of correlated strength per block
                                    min_cor = 0, max_cor = 0.5, # residual correlation of the phenotypes drawn uniformly,
                                    seed){
-  set.seed(seed = seed)
-  n = nrow(X)
+  if(!is.null(seed)){set.seed(seed = seed)}
+  
+  # X = X[sample(1:nrow(X), n), 1:p] #randomly select n rows and p columns from X
+  if(n > nrow(X)|p > nrow(X)){
+    X = X[1:n, 1:p]
+  }
   p0 = round(active_ratio_p * p)
   q0 = round(active_ratio_q * q)
   
@@ -43,7 +48,6 @@ simulate_withRealGenome = function(X, p, q = 3000,
   
   #-----------------------------------------------------------------------------
   # Modify X into our desired format
-  X = X[, 1:p]
   snp_ls = colnames(X)
   
   rownames(X) <- NULL
@@ -52,7 +56,6 @@ simulate_withRealGenome = function(X, p, q = 3000,
   list_X$snps <- as.matrix(X)
   list_X$vec_maf <- apply(X, 2, function(xx) mean(xx) / 2) 
   class(list_X) <- "sim_snps"
-  # browser()
   
   #-------------------------------------------------------------------------------
   # Simulate the association pattern 
@@ -60,15 +63,18 @@ simulate_withRealGenome = function(X, p, q = 3000,
   
   # specify the indices of X and Y that are active
   # X
-  # # First divide X into chunk of certain size
+  
+  # First divide X into chunk of certain size
   # X_chunk_ls = split(1:p, ceiling(seq_along(1:p) / X_chunk_size))
   # n_X_chunk = length(X_chunk_ls)
   # # Then set random chunks to active according to the porpotion
-  # ind_chunk_active = sample(n_X_chunk, round(n_X_chunk*active_ratio_p), replace = FALSE)
+  # # ind_chunk_active = sample(n_X_chunk, round(n_X_chunk*active_ratio_p), replace = FALSE)
+  # ind_chunk_active = sample(n_X_chunk, n_active_chunk, replace = FALSE)
   # # select indexs from chunk
-  # ind_p0 = lapply(ind_chunk_active, function(i) X_chunk_ls[[i]]) %>% unlist
+  # ind_p_active_chunks = lapply(ind_chunk_active, function(i) X_chunk_ls[[i]]) %>% unlist
 
   # Randomly select p0 number of active SNPs
+  # ind_p0 = sample(ind_p_active_chunks, p0)
   ind_p0 = sample(1:p, p0)
   
   # ind_p0 <- sort(sample(1:p, p0, replace = FALSE)) 
