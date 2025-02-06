@@ -1,0 +1,1 @@
+#generate replicate data using echoseq and checkout whether the simulated data makes sense 
