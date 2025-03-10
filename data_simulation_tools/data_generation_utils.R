@@ -27,6 +27,7 @@ set_pattern <- function(d, p, ind_d0, ind_p0, vec_prob_sh) {
 
 generate_dependence_pat <- function (list_snps, list_phenos, pat,
                                      family = "gaussian", m = NULL,
+                                     missing_ratio = 0,
                                      max_tot_pve = NULL, user_seed = NULL) {
   
   if (!is.null(user_seed)) {
@@ -69,10 +70,19 @@ generate_dependence_pat <- function (list_snps, list_phenos, pat,
                                    pat, vec_maf, 
                                    max_tot_pve=max_tot_pve, m=m, 
                                    var_err, seed = user_seed)
+    
+
     with(list_eff, {
       phenos <- phenos + snps %*% beta
       if (family == "binomial")
         phenos <- ifelse(phenos > 0, 1, 0)
+      # Set missing values
+      if(missing_ratio > 0){
+        num_entries <- round(missing_ratio * length(phenos))
+        indices <- sample(seq_along(Y), num_entries)
+        Y[indices] <- NA
+      }
+      
       list_data <- create_named_list_(phenos, snps, beta,
                                       pat)
       class(list_data) <- "sim_data"
@@ -88,76 +98,77 @@ generate_eff_sizes <- function(d, phenos_act, snps_act, pat, vec_maf,
   # pve_per_snp average variance explained per snp
   p <- length(vec_maf)
   
-  
   var_snps_act <- apply(snps_act, 2, var)
   var_phenos_act <- apply(phenos_act, 2, var)
   bool_cst <- var_phenos_act == 0
 
   beta <- matrix(0.0, nrow = p, ncol = d)
   ind_d0 <- which(colSums(pat)>0)
-  
-  # #suppose we have only one active SNP
-  # if(sum(rowSums(pat)>0) == 1){
-  #   active_snp_ind = which(rowSums(pat)>0)
-  #   maf = vec_maf[active_snp_ind]
-  #   
-  #   vec_pve <- rbeta(length(ind_d0), shape1 = 1, shape2 = 5) 
-  #   #scale it so the maximum is less than max_tot_pve
-  #   vec_pve <- vec_pve * max_tot_pve
-  #   
-  #   var_x <- 2 * maf * (1 - maf)
-  #   var_y = var_err[ind_d0]/(1-sqrt(vec_pve))
-  #   beta[active_snp_ind, ind_d0] = sqrt(var_y * vec_pve / var_x)
-  # }
 
   if(!is.null(max_tot_pve)){
     max_per_resp <- max(colSums(pat)) # maximum of number of SNPs assoc. with one protein
     pve_per_snp <- max_tot_pve / max_per_resp 
   }else{
-    vec_pve_k = rep(0.0, q)
+    vec_pve_k = rep(0.0, ncol(pat))
     vec_pve_k[ind_d0] = rbeta(length(ind_d0), 1, (1-m)/m) #m is the desired mean for this BETA distibution
   }
   
- 
-  # browser()
-  beta[, ind_d0] <- sapply(ind_d0, function(k) {
-    
-    pve_k = vec_pve_k[k]
-    
-    p0_k <- sum(pat[,k]) #number of SNPs assoc. with active protein k
-    
-    #generate proportion of variation explained by each SNP via Beta distribution
-    vec_pve_per_snp <- rbeta(p0_k, shape1 = 2, shape2 = 5) 
-    # positively skewed Beta distribution,to give more weight to smaller effect sizes
-    
-    
-    #scaling vec_pve_per_snp
-    if(!is.null(max_tot_pve)){    
-      #case 1: scale it to have mean = max_tot_pve/maxmum number of active SNPs
-      vec_pve_per_snp <- vec_pve_per_snp / sum(vec_pve_per_snp) * pve_per_snp * p0_k
-      # tot_var_expl_k <- pve_per_snp * p0_k * var_err[k] / (1 - pve_per_snp * p0_k)
-      tot_var_k <- var_err[k]/(1- pve_per_snp * p0_k)
-    }else{     
-      #case 2: scale it to the varied ht^2
-      vec_pve_per_snp <- vec_pve_per_snp / sum(vec_pve_per_snp) * pve_k
-      tot_var_k <- var_err[k]/(1-pve_k)
-    }
-    
-    
-    vec_maf_act <- vec_maf[pat[,k]]
-    vec_var_act <- 2 * vec_maf_act * (1 - vec_maf_act)
-    
-    beta_k <- rep(0.0, p)
-    # beta_k[pat[,k]] <- sqrt((tot_var_expl_k + var_err[k]) * vec_pve_per_snp / vec_var_act)
-    beta_k[pat[,k]] <- sqrt( tot_var_k * vec_pve_per_snp / vec_var_act)
-    
+  # suppose we have only one active SNP
+  if(sum(rowSums(pat)>0) == 1){
+
+    active_snp_ind = which(rowSums(pat)>0)
   
-    # switches signs with probabilty 0.5
-    beta_k[pat[,k]] <- sample(c(1, -1), p0_k, replace = TRUE) * beta_k[pat[,k]]
+    maf = vec_maf[active_snp_ind]
+    var_x <- 2 * maf * (1 - maf)
     
-    beta_k
-  })
+    var_y = var_err/(1-vec_pve_k)
+    beta[active_snp_ind, ] = sqrt(var_y * vec_pve_k / var_x)
+
+    beta[active_snp_ind, ind_d0] <- sample(c(1, -1), length(ind_d0), replace = TRUE) * beta[active_snp_ind, ind_d0]
+
+  }else{
+    # browser()
+    beta[, ind_d0] <- sapply(ind_d0, function(k) {
+      
+      pve_k = vec_pve_k[k]
+      
+      p0_k <- sum(pat[,k]) #number of SNPs assoc. with active protein k
+      
+      #generate proportion of variation explained by each SNP via Beta distribution
+      vec_pve_per_snp <- rbeta(p0_k, shape1 = 2, shape2 = 5) 
+      # positively skewed Beta distribution,to give more weight to smaller effect sizes
+      
+      
+      #scaling vec_pve_per_snp
+      if(!is.null(max_tot_pve)){    
+        #case 1: scale it to have mean = max_tot_pve/maxmum number of active SNPs
+        vec_pve_per_snp <- vec_pve_per_snp / sum(vec_pve_per_snp) * pve_per_snp * p0_k
+        # tot_var_expl_k <- pve_per_snp * p0_k * var_err[k] / (1 - pve_per_snp * p0_k)
+        tot_var_k <- var_err[k]/(1- pve_per_snp * p0_k)
+      }else{     
+        #case 2: scale it to the varied ht^2
+        vec_pve_per_snp <- vec_pve_per_snp / sum(vec_pve_per_snp) * pve_k
+        tot_var_k <- var_err[k]/(1-pve_k)
+      }
+      
+      
+      vec_maf_act <- vec_maf[pat[,k]]
+      vec_var_act <- 2 * vec_maf_act * (1 - vec_maf_act)
+      
+      beta_k <- rep(0.0, p)
+      # beta_k[pat[,k]] <- sqrt((tot_var_expl_k + var_err[k]) * vec_pve_per_snp / vec_var_act)
+      beta_k[pat[,k]] <- sqrt( tot_var_k * vec_pve_per_snp / vec_var_act)
+      
+      
+      # switches signs with probabilty 0.5
+      beta_k[pat[,k]] <- sample(c(1, -1), p0_k, replace = TRUE) * beta_k[pat[,k]]
+      
+      beta_k
+    })
+  }
   
+
   create_named_list_(beta)
   
 }
+

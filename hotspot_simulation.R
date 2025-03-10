@@ -34,6 +34,10 @@ colnames(snp_gene_info)[4] = "POS"
 snp_gene_info = snp_gene_info %>% dplyr::select(ID, POS) %>% 
   distinct(ID, .keep_all = TRUE) #remove duplicates
 
+#filter and save snp_gene_info for those in this chunk
+snp_gene_info = snp_gene_info %>% filter(ID %in% colnames(X))
+write.csv(snp_gene_info, "/rds/user/yl2021/hpc-work/hotspot_sim/snp_gene_info.csv", row.names = FALSE)
+
 
 reshape_atlasQTL_res = function(obj_atlasqtl){
   # beta

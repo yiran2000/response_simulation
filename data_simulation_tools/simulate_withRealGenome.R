@@ -11,9 +11,7 @@ simulate_withRealGenome = function(X, q = 3000,
                                    active_ratio_p = NULL, 
                                    active_ratio_q = NULL,
                                    residual_cor_mat = NULL,
-                                   # X_chunk_size = 100,
-                                   # n_active_chunk = 2,
-                                   # max_q_assoc = 5, # maximum number of proteins to be associated with one protein
+                                   vec_rho_phenos = NULL,
                                    #rate of missingness in Y (in total, with variation in each column)
                                    missing_ratio = 0, 
                                    m = NULL,
@@ -34,6 +32,7 @@ simulate_withRealGenome = function(X, q = 3000,
   n = nrow(X)
   p = ncol(X)
   snp_ls = colnames(X)
+
   
   if(is.null(active_SNP)){
     p0 = round(active_ratio_p * p)
@@ -59,6 +58,8 @@ simulate_withRealGenome = function(X, q = 3000,
   list_X$vec_maf <- apply(X, 2, function(xx) mean(xx) / 2) 
   class(list_X) <- "sim_snps"
   
+  rm(X)
+  
 
   #-------------------------------------------------------------------------------
   # Simulate the association pattern 
@@ -76,9 +77,11 @@ simulate_withRealGenome = function(X, q = 3000,
   # We first generate Gaussian residuals with specific correlation structures (block-size 10)
   # vec_rho_phenos is the strength of correlation within each block
   if(!is.null(residual_cor_mat)){ # use specified residuals
-    L <- t(chol(residual_cor_mat))
+    
+
+    L <- chol(residual_cor_mat)
     tZ <- matrix(rnorm(q * n), nrow = q, ncol = n)
-    residuals_sim <- t(L %*% tZ) # Gaussian variables
+    residuals_sim <- crossprod(tZ, L) # Gaussian variables
     
     list_Y <- list(
       phenos = residuals_sim,
@@ -87,58 +90,37 @@ simulate_withRealGenome = function(X, q = 3000,
     class(list_Y) <- "sim_phenos"
     
   }else{
-    if (cor_phenos == "equicorrelated") { # residual correlation (blocks of equicorrelated phenotypes)
+    if (cor_phenos == "equicorrelated" | cor_phenos == "autocorrelated") { # residual correlation (blocks of equicorrelated phenotypes)
       stopifnot(nb_phenos_per_block <= q) # if error, specify a smaller block size
-      vec_rho_phenos <- runif(ceiling(q / nb_phenos_per_block), min = min_cor, max = max_cor) 
-      mess_phenos <- paste0("_", cor_phenos, "_phenotypes_min_", min_cor, "_max_", max_cor)
+      if(is.null(vec_rho_phenos)){
+        vec_rho_phenos <- runif(ceiling(q / nb_phenos_per_block), min = min_cor, max = max_cor) # define the correlation strength rho for each block
+      }
+      
     } else {
       cor_phenos <- vec_rho_phenos <- NULL
-      mess_phenos <- "_uncorrelated_phenotypes"
     }
     
     list_Y <- generate_phenos(n, q, cor_type = cor_phenos, vec_rho = vec_rho_phenos, user_seed = seed)
+    
   }
   
-  # browser()
   # Then we add dependency structure into X and Y:
   # pve for proportion of variance explained by SNPs, here we set a maximum
-  dat <- generate_dependence_pat(list_X, list_Y, pat = pat, max_tot_pve = max_tot_pve, m=m, user_seed = seed)
-  pat <- as.matrix(dat$pat)
-  colnames(pat) = protein_ls
-  rownames(pat) = snp_ls
+  dat <- generate_dependence_pat(list_X, list_Y, pat = pat, max_tot_pve = max_tot_pve, m=m, missing_ratio = missing_ratio, user_seed = seed)
+  dimnames(dat$beta) <- list(snp_ls, protein_ls)
+  dimnames(dat$pat) <- list(snp_ls, protein_ls)
+  colnames(dat$phenos) = protein_ls
   
-  beta <- as.matrix(dat$beta)
-  colnames(beta) = protein_ls
-  rownames(beta) = snp_ls
-  
-  #-----------------------------------------------------------------------------
-  # Set missing values
-  # 
-  Y = dat$phenos
-  if(missing_ratio > 0){
-    num_entries <- round(missing_ratio * length(Y))
-    indices <- sample(seq_along(Y), num_entries)
-    Y[indices] <- NA
-  }
   
   #-----------------------------------------------------------------------------
   # The final X, Y, pat:
   #
-  X = as.matrix(dat$snps)
-  colnames(X) = snp_ls
-  Y = as.matrix(Y)
-  # colnames(Y) = protein_ls
   
   # var_X <- apply(X, 2, var)
   # #X <- X[, var_X != 0]
   # pat <- pat[var_X != 0, ]
   
-  return(list(
-    X = X, 
-    Y = Y, 
-    pat = pat,
-    beta = beta
-  ))
+  return(dat)
   
 }
 

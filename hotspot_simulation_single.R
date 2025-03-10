@@ -36,7 +36,7 @@ snp_gene_info = fread("data/snp_gene_info.csv")
 list_sim = simulate_withRealGenome(X = X_real[,501:1000], q = 2919,
                                    protein_ls = colnames(Y_real_corr),
                                    active_SNP = NULL,
-                                   active_protein = protein_rank[1:1000],
+                                   active_protein = protein_rank[1:100],
                                    active_ratio_p = 1/500, 
                                    active_ratio_q = NULL,
                                    residual_cor_mat = Y_real_corr,

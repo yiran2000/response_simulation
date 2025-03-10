@@ -41,37 +41,63 @@ snp_gene_info = snp_gene_info %>% dplyr::select(ID, POS) %>%
 Y = readRDS("/rds/user/yl2021/hpc-work/myukbb/proteomics_clean/residuals_meanImp_discovery.rds") %>% as.data.table()
 ID = Y$eid
 
-# Y_real_corr = readRDS("/rds/user/yl2021/hpc-work/hotspot_sim/Y_real_corr.rds")
-# protein_rank = readLines("/rds/user/yl2021/hpc-work/hotspot_sim/protein_rank.txt")
+Y_real_corr = readRDS("/rds/user/yl2021/hpc-work/hotspot_sim/Y_real_corr.rds")
+protein_rank = readLines("/rds/user/yl2021/hpc-work/hotspot_sim/protein_rank.txt")
 
-# geno = fread("/rds/user/yl2021/hpc-work/hotspot_sim/simulated_snp.raw") 
-# X = geno[match(ID, geno$IID), .SD, .SDcols = c(2, 7:ncol(geno))]%>% 
-#   setNames(map_chr(colnames(.), ~ strsplit(.x, "_")[[1]][1])) %>% 
-#   dplyr::rename(eid = IID)
-# X_real = as.matrix(X[,(ncol(X)-1000+1):ncol(X)])
+geno = fread("/rds/user/yl2021/hpc-work/hotspot_sim/simulated_snp.raw") 
+X = geno[match(ID, geno$IID), .SD, .SDcols = c(2, 7:ncol(geno))]%>% 
+  setNames(map_chr(colnames(.), ~ strsplit(.x, "_")[[1]][1])) %>% 
+  dplyr::rename(eid = IID)
+X_real = as.matrix(X[,(ncol(X)-1000+1):ncol(X)])
 
 
 
 ################################################################################
 # Data simulation
 
+p = 1000
+q = 2919
+n = nrow(X_real)
 
-list = readRDS(file.path(save_path, paste0("dat/sim_list_", task_id, ".rds")))
-
+list = simulate_withRealGenome(as.matrix(X_real), 
+                               q=2919, 
+                               protein_ls = colnames(Y)[3:ncol(Y)],
+                               active_protein = protein_rank[1:qt],
+                               residual_cor_mat = Y_real_corr,
+                               active_ratio_p = 0.005, 
+                               max_tot_pve = 0.25,
+                               sh2 = 5,
+                               seed = 2020)
 X_sim = as.matrix(list$X)
 Y_sim = as.matrix(list$Y)
 pat_sim = list$pat
 beta_sim = list$beta
 
-p = 1000
-q = 2919
-n = nrow(X_sim)
-
+saveRDS(list, file.path(save_path, paste0("dat/sim_list_", task_id, ".rds")))
 
 ################################################################################
 # Run atlasQTL on simulated data
 # the prior expectation and variance of the number of predictors associated with each response.
-obj_atlasqtl = readRDS(file.path(save_path, paste0("atlasqtl_res/obj_atlasqtl_sim_", task_id, ".rds")))
+mu_t = 2e-5* p
+std = 2e-4*p
+v_t = max(mu_t, std^2)
+
+obj_atlasqtl =  atlasqtl(Y = Y_sim, X = X_sim,
+                         p0 = c(mu_t, v_t),
+                         user_seed = 1, maxit=1000,
+                         batch = "y",
+                         tol_loose = 1,
+                         tol_tight = 0.1,
+                         burn_in = 10,
+                         maxit_full = 5,
+                         maxit_subsample = 10,
+                         n_partial_update = 500,
+                         iter_ladder = c(5, 10, 15, 20, 25, 30, 40, 60, 80, 100),
+                         e_ladder = c(0.9, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05),
+                         eval_perform = F,
+                         thinned_elbo_eval = T) 
+
+saveRDS(obj_atlasqtl, file.path(save_path, paste0("atlasqtl_res/obj_atlasqtl_sim_", task_id, ".rds")))
 
 # ------------------------------------------------------------------------------
 # Infer FDR
@@ -173,34 +199,6 @@ FDR_loci_GWAS = FP_proteins / (FP_proteins + TP_proteins)
 ################################################################################
 #make plots
 
-reshape_atlasQTL_res = function(obj_atlasqtl){
-  # beta
-  beta_mat = as.data.frame(obj_atlasqtl$beta_vb)
-  beta_mat$ID = rownames(beta_mat)
-  beta_df = reshape2::melt(beta_mat, id.vars = "ID", variable.name = "protein_name", value.name = "BETA")
-  
-  # PPI
-  corr_mat = as.data.frame(obj_atlasqtl$gam_vb)
-  corr_mat$ID = rownames(corr_mat)
-  
-  # joint beta and ppi
-  corr_df = reshape2::melt(corr_mat, id.vars = "ID", variable.name = "protein_name", value.name = "corr_metric")%>% 
-    #Combine snp_gene_info
-    left_join(snp_gene_info, by = "ID") %>% 
-    left_join(beta_df, by = c("ID", "protein_name"))
-  
-  # theta
-  theta_df = 
-    data.frame(ID = names(obj_atlasqtl$theta_vb), theta = obj_atlasqtl$theta_vb) %>% 
-    left_join(snp_gene_info, by = "ID")
-  
-  return(
-    list(
-      corr_df,theta_df
-    )
-  )
-}
-
 #-------------------------------------------------------------------------------
 #manhattan plot of simulated v.s. inferred
 
@@ -250,18 +248,25 @@ p1 = wrap_plots(p1.1, p1.2, p1.3, ncol = 1)
 # maximum PPI v.s. -log10pval
 atlas_gwas_joint_df = res_simData[[1]] %>% left_join(gwas_df, by = c("ID", "POS","protein_name"))
 
+true_df = data.frame(
+  protein_name = names(colSums(pat_sim)>0),
+  if_active = colSums(pat_sim)>0
+)
+
 p2.1  = atlas_gwas_joint_df %>% 
   group_by(protein_name) %>% 
   drop_na() %>% 
   summarise(max_ppi = max(corr_metric.x),
             max_logpval = max(corr_metric.y)) %>% 
-  ggplot(aes(x =max_ppi, y = max_logpval))+
+  left_join(true_df, by = "protein_name") %>% 
+  ggplot(aes(x =max_ppi, y = max_logpval, color = if_active))+
   xlab("maximum PPI by protein")+
   ylab(expression("maximum -log"[10]*"(p-value) by protein"))+
   geom_point(alpha = 0.5)+
   geom_hline(yintercept = -log10(1.7e-8), linetype = "dashed", linewidth = 0.2)+
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", linewidth = 0.2)+
   ggtitle("Maximum -log10pval v.s. PPI")+
+  labs(color = "If simulated active")+
   theme_bw()
 
 # distributin of simulated BETA
@@ -278,6 +283,10 @@ p2 = wrap_plots(p2.2, p2.1, ncol = 1)
 beta_sim_mat= as.data.frame(beta_sim)
 beta_sim_mat$ID = rownames(beta_sim_mat)
 beta_sim_df = reshape2::melt(beta_sim_mat, id.vars = "ID", variable.name = "protein_name", value.name = "BETA")
+
+sigma_X = data.frame(
+  ID = names(apply(X_sim, 2, sd)),
+  sd = apply(X_sim, 2, sd))
 
 p3.1 = res_simData[[1]] %>% 
   left_join(beta_sim_df, by = c("ID", "protein_name")) %>% 
@@ -326,6 +335,17 @@ p3 = wrap_plots(p3.1, p3.2, ncol = 1)
 #   ylab("BETA (simulated)")+
 #   theme_bw()+
 #   ggtitle("inferred BETA v.s. simulated (maximum by protein)")
+
+
+
+gwas_df %>% 
+  left_join(beta_sim_df, by = c("ID", "protein_name")) %>% 
+  filter(BETA.y !=0) %>% 
+  ggplot(aes(x = BETA.x, y = BETA.y, color = corr_metric))+
+  geom_point(alpha = 0.5)+
+  xlab("BETA (GWAS)")+
+  ylab("BETA (simulated)")+
+  theme_bw()
 
 
 #save to subfolder plots
