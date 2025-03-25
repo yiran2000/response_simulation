@@ -13,23 +13,23 @@ library(stringr)
 
 # simulation_tool_path = "~/project/response_simulation"
 simulation_tool_path = "C:/Users/Yiran/OneDrive - University of Cambridge/Documents/PhD/response_simulation"
-source("data_simulation_tools/simulate_withRealGenome.R")
+source(file.path(simulation_tool_path, "data_simulation_tools/simulate_withRealGenome.R"))
 source("reshape_atlasQTL_res.R")
 
 ################################################################################
 #read in pre-save data
 #X
-list = readRDS("data/sim_list_3.rds")
+list = readRDS(file.path(simulation_tool_path, "data/sim_list_3.rds"))
 X_real = as.matrix(list$X)
 
 #Y_real_corr
-Y_real_corr = readRDS("data/Y_real_corr.rds")
+Y_real_corr = readRDS(file.path(simulation_tool_path, "data/Y_real_corr.rds"))
 
 #protein rank
-protein_rank = readLines("data/protein_rank.txt")
+# protein_rank = readLines("data/protein_rank.txt")
 
 #snp gene info
-snp_gene_info = fread("data/snp_gene_info.csv")
+snp_gene_info = fread(file.path(simulation_tool_path, "data/snp_gene_info.csv"))
 
 ################################################################################
 #simulate one single hotspot
