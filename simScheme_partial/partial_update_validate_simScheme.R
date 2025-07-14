@@ -21,7 +21,7 @@ if(HPC){
   simulation_tool_path = "~/project/response_simulation"
   list = readRDS(file.path("/rds/user/yl2021/hpc-work/hotspot_sim", "sim_list_3.rds"))
   X_real = as.matrix(list$X)
-  save_path = "/rds/user/yl2021/hpc-work/partial_update_validate_simScheme/Sim1_new_new"
+  save_path = "/rds/user/yl2021/hpc-work/partial_update_validate_simScheme/Sim1"
   
   # if(task_id == 1){
   #   system("find /rds/user/yl2021/hpc-work/slurmdir/ -type f -delete")

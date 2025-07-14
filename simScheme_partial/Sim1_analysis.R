@@ -7,19 +7,12 @@ library(patchwork)
 
 # param_table = param_table %>% rename(method = "scheme")
 
-save_path = "/rds/user/yl2021/hpc-work/partial_update_validate_simScheme/Sim1_new_new"
+save_path = "/rds/user/yl2021/hpc-work/partial_update_validate_simScheme/Sim1"
+
+
 summary_ls = gtools::mixedsort(list.files(file.path(save_path, "summary")))
 summary_df = lapply(summary_ls, function(f) read.table(file.path(save_path, "summary", f))) %>% 
   rbindlist(fill=TRUE)
-
-
-summary_df$method <- factor(summary_df$method, levels = c(
-  "Vanilla",
-  "RF",
-  "AFE",
-  "AFI",
-  "AFIO"
-))
 
 summary_df = summary_df %>% 
   mutate(precision = TP/(FP+TP), 
@@ -107,6 +100,25 @@ write.csv(df_combined, file.path(save_path, "df_combined.csv"), row.names = FALS
 
 
 ################################################################################
+#load results directly
+summary_df = read.csv(file.path(save_path, "summary_df.csv"))
+df_combined = read.csv(file.path(save_path, "df_combined.csv"))
+
+summary_df$method <- factor(summary_df$method, levels = c(
+  "Vanilla",
+  "RF",
+  "AFE",
+  "AFI",
+  "AFIO"
+))
+
+df_combined$method <- factor(df_combined$method, levels = c(
+  "RF",
+  "AFE",
+  "AFI",
+  "AFIO"
+))
+################################################################################
 paletteer_d("colorBlindness::Blue2DarkOrange12Steps", 6)
 custom_colors <- c(
   "Vanilla" = "black",    
@@ -167,7 +179,7 @@ p1 = df_combined %>%
   facet_wrap(~a_q_label, labeller = label_parsed, nrow = 1)+
   scale_color_manual(values = custom_colors)+
   scale_fill_manual(values = custom_colors)+
-  ylab(expression(Delta ~ "runtime (local) %"))+
+  ylab(expression(-Delta ~ "runtime (local) %"))+
   scale_y_continuous(breaks = seq(-50,100, 25))+
   mytheme
 
@@ -185,7 +197,7 @@ p2 = df_combined %>%
   facet_wrap(~a_q_label, labeller = label_parsed, nrow = 1)+
   scale_color_manual(values = custom_colors)+
   scale_fill_manual(values = custom_colors)+
-  ylab(expression(Delta ~ "runtime (total) %"))+
+  ylab(expression(-Delta ~ "runtime (total) %"))+
   scale_y_continuous(breaks = seq(-50,100, 25))+
   mytheme
 
