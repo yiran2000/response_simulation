@@ -28,11 +28,11 @@ list_sim = simulate_withRealGenome(
 
 
 list_sim = simulate_withRealGenome(
-  X = X_real[,801:1000], 
+  X = X_real, 
   q = 1000,
   protein_ls = paste0("protein_", 1:1000),
-  # active_protein = paste0("protein_", c(1:100, 201:300, 401:500, 601:700, 801:900)),
-  active_protein = paste0("protein_", c(1, 201, 401, 601, 801)),
+  active_protein = paste0("protein_", c(1:100, 201:300, 401:500, 601:700, 801:900)),
+  # active_protein = paste0("protein_", c(1, 201, 401, 601, 801)),
   active_ratio_p = 1/200, 
   active_ratio_q = NULL,
   residual_cor_mat = NULL,
@@ -41,7 +41,7 @@ list_sim = simulate_withRealGenome(
   max_tot_pve = NULL, 
   nb_phenos_per_block =  200, 
   # min_cor = 0, max_cor = 0.9,
-  m = 0.001,
+  hm = 0.001,
   sh2 = 5,
   seed  = 2024
 )

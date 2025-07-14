@@ -27,6 +27,7 @@ res_simData = reshape_atlasQTL_res(obj_atlasqtl, X_sim,snp_gene_info)
 #GWAS
 #-------------------------------------------------------------------------------
 #Save simulated Y_sim into pheno files to run PLINK GWAS
+Y = readRDS("/rds/user/yl2021/hpc-work/myukbb/proteomics_clean/residuals_meanImp_discovery.rds") %>% as.data.table()
 ID = fread("/rds/user/yl2021/hpc-work/hotspot_sim/simulated_snp.sample")
 pheno_sim = as.data.table(Y_sim) %>% 
   mutate(FID = Y$eid, IID = Y$eid) %>% 
@@ -37,6 +38,7 @@ write.table(pheno_sim_reordered, file.path(mybiobank, "my_pheno/pheno_sim.fam"),
 
 #run GWAS
 system("rm -rf /rds/user/yl2021/hpc-work/myukbb/UKB_GWAS/chr19/chr19_sim*")
+system("find /rds/user/yl2021/hpc-work/myukbb/UKB_GWAS/chr19/ -type f -delete")
 plink_cmd_GWAS <- paste(
   "plink2",
   "--bgen /rds/user/yl2021/hpc-work/hotspot_sim/simulated_snp.bgen ref-first",

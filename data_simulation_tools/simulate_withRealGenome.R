@@ -14,6 +14,7 @@ simulate_withRealGenome = function(X, q = 3000,
                                    vec_rho_phenos = NULL,
                                    #rate of missingness in Y (in total, with variation in each column)
                                    missing_ratio = 0, 
+                                   beta1 = 1,
                                    hm = NULL,
                                    # mean_imputation = F, # whether simulated pheno should be imputed 
                                    # upper bound on the proportion of response variance explained by the predictors 
@@ -106,7 +107,7 @@ simulate_withRealGenome = function(X, q = 3000,
   
   # Then we add dependency structure into X and Y:
   # pve for proportion of variance explained by SNPs, here we set a maximum
-  dat <- generate_dependence_pat(list_X, list_Y, pat = pat, max_tot_pve = max_tot_pve, m=hm, missing_ratio = missing_ratio, user_seed = seed)
+  dat <- generate_dependence_pat(list_X, list_Y, pat = pat, max_tot_pve = max_tot_pve, beta1 = beta1, m=hm, missing_ratio = missing_ratio, user_seed = seed)
   dimnames(dat$beta) <- list(snp_ls, protein_ls)
   dimnames(dat$pat) <- list(snp_ls, protein_ls)
   colnames(dat$phenos) = protein_ls

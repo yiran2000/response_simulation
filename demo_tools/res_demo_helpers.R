@@ -4,7 +4,7 @@ require(ggplot2)
 
 #evaluate AUROC and AUPRC
 ROC.atlasqtl = function(res_atlas, pat_sim){
-  roc <- PRROC::roc.curve(scores.class0 = as.vector(res_atlas$gam_vb), weights.class0 = as.vector(as.matrix(pat_sim)), curve =TRUE)
+  roc <- PRROC::roc.curve(scores.class0 = as.vector(res_atlas$gam_vb), weights.class0 = as.numeric(as.vector(as.matrix(pat_sim))), curve =TRUE)
   AUROC = roc$auc
   
   pr <- PRROC::pr.curve(scores.class0 = as.vector(res_atlas$gam_vb), weights.class0 = as.vector(as.matrix(pat_sim)), curve =TRUE)
@@ -14,6 +14,15 @@ ROC.atlasqtl = function(res_atlas, pat_sim){
     AUROC = AUROC,
     AUPRC = AUPRC
   ))
+}
+
+reshape_fittingCurve = function(fittingList, pat_sim = NULL){
+  df = do.call(rbind, fittingList) %>% as.data.frame()
+  df$iter <- 1:nrow(df) 
+  df_long <- pivot_longer(df, -iter, names_to = "series", values_to = "value") %>% 
+    mutate(associated = if_else(series %in% paste0("V",which(colSums(pat_sim) >0)), T, F))
+  
+  return(df_long)
 }
 
 

@@ -24,7 +24,7 @@ p1.2 = res_simData[[1]]%>%
 # GWAS inferred associations
 p1.3 = gwas_df%>% 
   group_by(ID, POS) %>% 
-  summarise(n_assoc = sum(corr_metric > -log10(0.05/(1000*3000)))) %>% 
+  summarise(n_assoc = sum(corr_metric > -log10(0.05/(1000*1000)))) %>% 
   ggplot(aes(x = POS, y = n_assoc))+
   geom_point()+
   theme_bw()+

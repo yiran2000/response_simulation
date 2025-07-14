@@ -26,7 +26,7 @@ set_pattern <- function(d, p, ind_d0, ind_p0, vec_prob_sh) {
 }
 
 generate_dependence_pat <- function (list_snps, list_phenos, pat,
-                                     family = "gaussian", m = NULL,
+                                     family = "gaussian", beta1 = 1, m = NULL,
                                      missing_ratio = 0,
                                      max_tot_pve = NULL, user_seed = NULL) {
   
@@ -68,7 +68,7 @@ generate_dependence_pat <- function (list_snps, list_phenos, pat,
 
     list_eff <- generate_eff_sizes(d, phenos_act, snps_act,
                                    pat, vec_maf, 
-                                   max_tot_pve=max_tot_pve, m=m, 
+                                   max_tot_pve=max_tot_pve, beta1 = beta1, m=m, 
                                    var_err, seed = user_seed)
     
 
@@ -84,7 +84,7 @@ generate_dependence_pat <- function (list_snps, list_phenos, pat,
       }
       
       list_data <- create_named_list_(phenos, snps, beta,
-                                      pat)
+                                      pat,vec_pve_k)
       class(list_data) <- "sim_data"
       list_data
     })
@@ -92,7 +92,7 @@ generate_dependence_pat <- function (list_snps, list_phenos, pat,
 }
 
 generate_eff_sizes <- function(d, phenos_act, snps_act, pat, vec_maf,
-                               max_tot_pve = NULL, m = NULL, var_err, seed = seed) {
+                               max_tot_pve = NULL, beta1 = 1, m = NULL, var_err, seed = seed) {
   
   set.seed(seed)
   # pve_per_snp average variance explained per snp
@@ -110,7 +110,7 @@ generate_eff_sizes <- function(d, phenos_act, snps_act, pat, vec_maf,
     pve_per_snp <- max_tot_pve / max_per_resp 
   }else{
     vec_pve_k = rep(0.0, ncol(pat))
-    vec_pve_k[ind_d0] = rbeta(length(ind_d0), 1, (1-m)/m) #m is the desired mean for this BETA distibution
+    vec_pve_k[ind_d0] = rbeta(length(ind_d0), beta1, (1-m)/m) #m is the desired mean for this BETA distibution
   }
   
   # suppose we have only one active SNP
@@ -168,7 +168,7 @@ generate_eff_sizes <- function(d, phenos_act, snps_act, pat, vec_maf,
   }
   
 
-  create_named_list_(beta)
+  create_named_list_(beta,vec_pve_k)
   
 }
 
